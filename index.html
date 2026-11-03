@@ -118,6 +118,23 @@ body.hc #hud,body.hc #toc,body.hc #hint{--hud:#fff;--hudInk:#000;box-shadow:0 0 
 #note .row{display:flex;gap:10px;justify-content:flex-start;margin-top:12px}
 #note .row button{padding:9px 16px;border-radius:10px;border:1px solid #cfc3aa;background:#fff;font:inherit;cursor:pointer}
 #note .row .go{background:#1f8f4e;border-color:#1f8f4e;color:#fff}
+#cover{position:fixed;inset:0;z-index:70;display:flex;align-items:center;justify-content:center;background:radial-gradient(ellipse at 50% 35%,#5b4a36 0%,#2b2218 75%);direction:rtl;transition:opacity .7s,transform .7s;padding:16px}
+#cover.gone{opacity:0;transform:scale(1.04);pointer-events:none}
+#cover .bk{position:relative;width:min(440px,88vw);aspect-ratio:3/4.1;max-height:92vh;border-radius:6px 14px 14px 6px;background:#e8b923;background-image:repeating-linear-gradient(0deg,rgba(0,0,0,.035) 0 1px,transparent 1px 3px),repeating-linear-gradient(90deg,rgba(255,255,255,.05) 0 1px,transparent 1px 3px),linear-gradient(135deg,#f2c94c,#d9a514);box-shadow:inset -14px 0 18px -10px rgba(0,0,0,.35),inset 10px 0 0 #b98a0c,0 30px 60px rgba(0,0,0,.55);display:flex;flex-direction:column;align-items:center;text-align:center;color:#1f2a44;font-family:'Amiri','Noto Naskh Arabic',serif;overflow:hidden}
+#cover .rib{position:absolute;top:-6px;left:46px;width:22px;height:120px;background:#1c4fa0;clip-path:polygon(0 0,100% 0,100% 100%,50% 86%,0 100%);box-shadow:2px 2px 6px rgba(0,0,0,.3)}
+#cover .band{margin-top:9%;width:100%;background:#1f2a44;color:#f6e7b8;padding:5% 6% 4%}
+#cover .k{font-size:clamp(13px,3.4vw,16px);letter-spacing:.5px;opacity:.85}
+#cover h1{margin:6px 0 2px;font-size:clamp(40px,11vw,64px);line-height:1.05;font-weight:700}
+#cover .g{font-size:clamp(18px,5vw,26px)}
+#cover .sub{margin:5% 8% 0;font-size:clamp(16px,4.2vw,21px);line-height:1.6}
+#cover .atom{width:24%;margin:4% 0 0;opacity:.85}
+#cover .by{margin-top:auto;font-size:clamp(14px,3.8vw,17px);line-height:1.7}
+#cover .by b{font-size:clamp(18px,4.8vw,23px)}
+#cover .free{margin:3% 0 2%;display:inline-block;background:#1f8f4e;color:#fff;border-radius:999px;padding:5px 16px;font-size:clamp(14px,3.8vw,17px)}
+#cover button{margin:2% 0 7%;font:inherit;font-size:clamp(17px,4.6vw,21px);padding:9px 30px;border-radius:12px;border:2px solid #1f2a44;background:#1f2a44;color:#f6e7b8;cursor:pointer}
+#cover button:disabled{opacity:.55;cursor:progress}
+#tocCover{font:inherit;background:none;border:1px solid #cfc3aa;border-radius:8px;padding:3px 10px;margin:0 0 8px;cursor:pointer}
+@media (prefers-reduced-motion: reduce){#cover{transition:none}}
 </style>
 </head>
 <body>
@@ -142,9 +159,35 @@ body.hc #hud,body.hc #toc,body.hc #hint{--hud:#fff;--hudInk:#000;box-shadow:0 0 
 <aside id="toc" aria-label="فهرس الكتاب">
   <button class="close" id="bTocClose" aria-label="إغلاق">×</button>
   <h3>الفيزياء — الخامس العلمي</h3>
+  <button id="tocCover" type="button">عرض الغلاف</button>
   <p>فرشات تفاعلية مرتبة على فصول الكتاب وفقراته. الختم الأحمر يعني أنك جرّبت كل الأشكال البارزة في الدرس.</p>
   <ol id="tocList"></ol>
 </aside>
+<div id="cover" role="dialog" aria-label="غلاف الكتاب">
+  <div class="bk">
+    <span class="rib" aria-hidden="true"></span>
+    <div class="band">
+      <div class="k">كتاب تفاعلي ثلاثي الأبعاد</div>
+      <h1>الفيزياء</h1>
+      <div class="g">للصف الخامس العلمي</div>
+    </div>
+    <p class="sub">فصول الكتاب العشرة في 94 صفحة منبثقة، يجرّب فيها الطالب القوانين بيده ويرى الفيزياء تتحرك أمامه</p>
+    <svg class="atom" viewBox="0 0 100 100" aria-hidden="true" fill="none" stroke="#1f2a44" stroke-width="3"><ellipse cx="50" cy="50" rx="44" ry="16"/><ellipse cx="50" cy="50" rx="44" ry="16" transform="rotate(60 50 50)"/><ellipse cx="50" cy="50" rx="44" ry="16" transform="rotate(120 50 50)"/><circle cx="50" cy="50" r="6" fill="#c2410c" stroke="none"/></svg>
+    <div class="by">إعداد<br><b>البروفيسور عماد محمد فرحان</b><br>باستعمال المساعد الذكي كلاود (Claude)</div>
+    <div class="free">مجاني للطلبة والأساتذة</div>
+    <button id="coverGo" disabled>يُحمَّل الكتاب…</button>
+  </div>
+</div>
+<script>
+(function(){
+  var c = document.getElementById('cover'), b = document.getElementById('coverGo');
+  if (location.hash && location.hash.length > 1) c.classList.add('gone');
+  var ready = function(){ b.disabled = false; b.textContent = 'افتح الكتاب'; };
+  var t = setInterval(function(){ if (window.__pp) { clearInterval(t); ready(); } }, 300);
+  b.addEventListener('click', function(){ c.classList.add('gone'); });
+  document.addEventListener('click', function(e){ if (e.target.id === 'tocCover') { document.getElementById('toc').classList.remove('open'); c.classList.remove('gone'); } });
+})();
+</script>
 <div id="loader"><div class="bk"></div><div>يُفتح الكتاب…</div></div>
 <div id="err"><div>تعذّر تشغيل العرض ثلاثي الأبعاد في هذا المتصفح (WebGL غير متاح).<br>جرّب متصفحاً حديثاً مثل Chrome أو Edge أو Safari.</div></div>
 <div id="note" role="dialog" aria-modal="true" aria-labelledby="noteH" hidden>
