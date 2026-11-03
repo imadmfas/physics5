@@ -1903,7 +1903,7 @@ SCENES.impulse = (S) => {
     group: g,
     targets: [
       { obj: c, hint: V(X0, 0, Z + 0.1), act: () => { if (busy) return; busy = true; c.position.x = X0; const tStop = soft ? 0.6 : 0.15, o = { k: 0 };
-        gsap.to(o, { k: 1, duration: S.reduced ? 0.001 : 1.4, ease: 'none', onUpdate: () => { c.position.x = X0 + (Xs() - 0.07 - X0) * o.k; setP(1); }, onComplete: () => { const o2 = { k: 0 }; gsap.to(o2, { k: 1, duration: S.reduced ? 0.001 : tStop * 3, ease: 'power2.out', onUpdate: () => { c.position.x = Xs() - 0.07 + 0.07 * o2.k; setP(1 - o2.k); if (soft) cush.scale.z = 1 - 0.4 * o2.k; }, onComplete: () => { const F = 24000 / tStop; J.set(F, 0.4, `F = −24000 / ${tStop} = −${(F / 1e4).toFixed(1)} × 10⁴ N`); S.sfx.click(); setTimeout(() => { c.position.x = X0; cush.scale.z = 1; setP(1); busy = false; }, 1600); } }); } }); } },
+        gsap.to(o, { k: 1, duration: S.reduced ? 0.001 : 1.4, ease: 'none', onUpdate: () => { c.position.x = X0 + (Xs() - 0.07 - X0) * o.k; setP(1); }, onComplete: () => { const o2 = { k: 0 }; gsap.to(o2, { k: 1, duration: S.reduced ? 0.001 : tStop * 3, ease: 'power2.out', onUpdate: () => { c.position.x = Xs() - 0.07 + 0.07 * o2.k; setP(1 - o2.k); if (soft) cush.scale.z = 1 - 0.4 * o2.k; }, onComplete: () => { const F = 24000 / tStop; J.set(F, 0.4, `F = −24000 / ${tStop} = −${(F / 1e4).toFixed(1)} × 10⁴ N`); S.sfx.thud(); S.shake(0.014); setTimeout(() => { c.position.x = X0; cush.scale.z = 1; setP(1); busy = false; }, 1600); } }); } }); } },
       { obj: cush, hit: [wall, cush], hint: V(XW, 0, Z + 0.12), act: () => { soft = !soft; cush.visible = soft; } },
       { obj: tP, hint: tP.position.clone(), act: () => { showP = !showP; setP(1); lp.visible = showP; } },
     ],
@@ -1936,7 +1936,7 @@ SCENES.collisions = (S) => {
     targets: [
       { obj: A, hint: V(-0.28, 0, Z + 0.1), act: () => { if (busy) return; busy = true; reset(); const sv = 0.04; const o = { t: 0 }, gap = 0.05 - 0.12 - (-0.28);
         gsap.to(o, { t: gap / (8 * sv), duration: S.reduced ? 0.001 : 1.2, ease: 'none', onUpdate: () => { A.position.x = -0.28 + 8 * sv * o.t; }, onComplete: () => {
-          const vA = elastic ? 2 : 5, vB = elastic ? 10 : 5, KE = elastic ? 80 : 50; jP.set(20, 0.3, 'P = 20 × 10⁴ (ثابت)'); jK.set(KE, 0.3, `KE = ${KE} × 10⁴ J`); lv.setText(elastic ? 'υ_A = 2 m/s ، υ_B = 10 m/s' : 'υ_mix = 5 m/s ، ΔKE = −30 × 10⁴ J');
+          const vA = elastic ? 2 : 5, vB = elastic ? 10 : 5, KE = elastic ? 80 : 50; jP.set(20, 0.3, 'P = 20 × 10⁴ (ثابت)'); S.sfx.thud(0.8); S.shake(0.01); jK.set(KE, 0.3, `KE = ${KE} × 10⁴ J`); lv.setText(elastic ? 'υ_A = 2 m/s ، υ_B = 10 m/s' : 'υ_mix = 5 m/s ، ΔKE = −30 × 10⁴ J');
           const o2 = { t: 0 }, xa = A.position.x, xb = B.position.x; gsap.to(o2, { t: 1.4, duration: S.reduced ? 0.001 : 1.6, ease: 'none', onUpdate: () => { A.position.x = xa + vA * sv * o2.t; B.position.x = Math.min(0.42, xb + vB * sv * o2.t); }, onComplete: () => setTimeout(() => { reset(); busy = false; }, 1600) }); } }); } },
       { obj: mode, hint: mode.position.clone(), act: () => { elastic = !elastic; mode.children[1].setText(elastic ? 'مرن تام' : 'عديم المرونة'); } },
       { obj: jK, hit: jK.hit, hint: V(0.32, 0, -0.32), act: () => { glow(jK.hit[0], '#e8590c', 0.6); } },

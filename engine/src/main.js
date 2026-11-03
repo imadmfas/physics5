@@ -18,7 +18,7 @@ const store = {
   set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} },
 };
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-const MATH = /[A-Za-z0-9ΔθλτΣπ√|(][A-Za-z0-9ΔθλτΣπ√²³⁻¹ₓ_=+\-−×·\/().°|,≈ ]*[A-Za-z0-9²³⁻¹°)|ₓ]|[A-Za-z0-9ΔθλτΣ]/g;
+const MATH = /[A-Za-z0-9ΔθλτΣπωαμρσβεφΦΩγ₀₁₂₃₄√|(][A-Za-z0-9ΔθλτΣπωαμρσβεφΦΩγ₀₁₂₃₄√²³⁻¹ₓ_=+\-−×·\/().°|,≈′ ]*[A-Za-z0-9ΔθλτΣπωαμρσβεφΦΩγ₀₁₂₃₄²³⁻¹°)|ₓ′]|[A-Za-z0-9ΔθλτΣπωαμρσβεφΦΩγ₀₁₂₃₄]/g;
 const rich = (s) => esc(String(s).replace(MATH, (m) => '\u0001' + m + '\u0002')).replace(/\u0001/g, '<bdi dir="ltr">').replace(/\u0002/g, '</bdi>');
 const ACC = ['#9c5a2c', '#e8590c', '#c99712', '#2f9e44', '#1c64b4', '#d6336c', '#1098ad', '#6f7f22', '#7048e8', '#e8704f'];
 
@@ -29,6 +29,7 @@ const state = {
   hc: store.get('pp-hc', false),
   reduced: store.get('pp-rm', null) ?? matchMedia('(prefers-reduced-motion: reduce)').matches,
   progress: store.get('pp-progress', {}),
+  vol: store.get('pp-vol', 0.8), lite: store.get('pp-lite', false), mob: false,
   busy: false, demoToken: 0, demoOn: false,
 };
 const prog = (id) => (state.progress[id] ||= { done: [], ans: null });
@@ -47,7 +48,7 @@ const SFX = {
     const t = c.currentTime + delay, o = c.createOscillator(), g = c.createGain();
     o.type = type; o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(f1, t + dur);
     g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + 0.012); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-    o.connect(g).connect(c.destination); o.start(t); o.stop(t + dur + 0.05);
+    o.connect(g).connect(this.out()); o.start(t); o.stop(t + dur + 0.05);
   },
   noise(dur, f0, f1, vol = 0.2) {
     if (!state.sound) return; const c = this.ensure(); if (!c) return;
@@ -55,9 +56,20 @@ const SFX = {
     for (let i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / n, 1.5);
     const s = c.createBufferSource(); s.buffer = b; const f = c.createBiquadFilter(); f.type = 'bandpass'; f.Q.value = 0.8;
     const t = c.currentTime; f.frequency.setValueAtTime(f0, t); f.frequency.exponentialRampToValueAtTime(f1, t + dur);
-    const g = c.createGain(); g.gain.value = vol; s.connect(f).connect(g).connect(c.destination); s.start();
+    const g = c.createGain(); g.gain.value = vol; s.connect(f).connect(g).connect(this.out()); s.start();
   },
+  out() { const c = this.ctx; if (!this.master) { this.master = c.createGain(); this.master.gain.value = state.vol; this.master.connect(c.destination); } return this.master; },
+  setVol(v) { state.vol = v; if (this.master) this.master.gain.value = v; },
   click() { this.tone(1700, 900, 0.06, 'triangle', 0.06); },
+  launch() { this.tone(220, 1300, 0.42, 'sawtooth', 0.03); this.noise(0.35, 800, 2600, 0.08); },
+  thud(k = 1) { this.tone(140, 45, 0.28, 'sine', 0.3 * k); this.noise(0.12, 600, 150, 0.22 * k); },
+  boing() { this.tone(170, 430, 0.12, 'sine', 0.12); this.tone(430, 150, 0.38, 'sine', 0.09, 0.1); },
+  buzz() { this.tone(110, 112, 0.45, 'sawtooth', 0.03); this.tone(220, 221, 0.45, 'square', 0.012); },
+  bubbles() { for (let i = 0; i < 5; i++) { const f = 380 + Math.random() * 500; this.tone(f, f * 1.9, 0.08, 'sine', 0.06, i * 0.07); } },
+  wind() { this.noise(0.9, 300, 900, 0.12); },
+  bell(f = 880) { this.tone(f, f, 1.0, 'sine', 0.07); this.tone(f * 2.01, f * 2, 0.55, 'sine', 0.025); },
+  tick(l = 0.5) { const f = 480 + 900 * Math.max(0, Math.min(1, l)); this.tone(f, f, 0.05, 'triangle', 0.035); },
+  celebrate() { [523, 659, 784, 1047].forEach((f, i) => this.tone(f, f, 0.24, 'triangle', 0.07, i * 0.09)); this.noise(0.5, 3000, 6000, 0.05); },
   pop() { this.tone(300, 820, 0.2, 'sine', 0.12); },
   page() { this.noise(0.55, 500, 3600, 0.22); },
   stamp() { this.tone(150, 55, 0.3, 'sine', 0.35); this.noise(0.14, 400, 200, 0.3); },
@@ -342,8 +354,11 @@ function jar({ max = 1, color = '#e8590c', name = '', unit = '', h = 0.2, r = 0.
   const lb = label(name ? `${name} 0 ${unit}` : '0', { size: 0.038 }); lb.position.y = h + 0.03; g.add(lb);
   g.value = 0; g.label = lb;
   g.fmt = (v) => (Math.abs(v) < 1e-9 ? '0' : (v < 0 ? '−' : '') + Math.abs(v).toFixed(digits));
+  g._o = { v: 0 };
   g.set = (v, dur = 0.9, txt) => {
-    g.value = v; const lvl = clamp(Math.abs(v) / max, 0, 1);
+    const prev = g.value; g.value = v; const lvl = clamp(Math.abs(v) / max, 0, 1);
+    const now = performance.now(); if (Math.abs(v - prev) > max * 0.02 && now - (g._tk || 0) > 260) { g._tk = now; SFX.tick(lvl); }
+    if (!txt && !state.reduced && dur > 0.2) { gsap.to(g._o, { v, duration: dur, ease: 'power2.out', overwrite: true, onUpdate: () => lb.setText(`${name} ${g.fmt(g._o.v)} ${unit}`.trim()) }); } else g._o.v = v;
     gsap.to(liq.scale, { y: Math.max(0.0001, lvl * (h - 0.004)), duration: state.reduced ? 0 : dur, ease: 'power2.out', overwrite: true });
     const c = v < 0 ? '#c92a2a' : color; liqMat.color.set(c); liqMat.emissive.set(c);
     lb.setText(txt || `${name} ${g.fmt(v)} ${unit}`.trim());
@@ -360,7 +375,8 @@ function dots(n, color, r = 0.008) {
   for (let i = 0; i < n; i++) m.setAt(i, 0, -10, 0, 0); m.commit();
   return m;
 }
-const S = { THREE, V, gsap, ink, glow, arrow, label, jar, dots, show, LINE_MAT, sfx: SFX, clamp, get reduced() { return state.reduced; }, reprint: () => drawRightPage() };
+const FX = { shakeT: 0, shakeA: 0 };
+const S = { THREE, V, gsap, ink, glow, arrow, label, jar, dots, show, LINE_MAT, sfx: SFX, clamp, shake: (a = 0.012) => { if (!state.reduced) { FX.shakeT = 0.35; FX.shakeA = a; } }, get reduced() { return state.reduced; }, reprint: () => drawRightPage() };
 
 /* ================= right page print ================= */
 const P = (x, z) => [((x + PAGE_W / 2) / PAGE_W) * 1024, ((z + PAGE_D / 2) / PAGE_D) * 1405];
@@ -400,6 +416,7 @@ function drawRightPage() {
 
 /* ================= left page (CSS3D) ================= */
 const pageEl = document.createElement('div'); pageEl.className = 'page'; pageEl.style.left = '0px'; pageEl.style.top = '0px';
+const mobInner = document.createElement('div'); mobInner.className = 'page'; document.getElementById('mobPage').appendChild(mobInner);
 const pageObj = new CSS3DObject(pageEl);
 pageObj.rotation.x = -Math.PI / 2;
 const K = 1000; // CSS world is scaled up to keep CSS 3D matrices numerically stable
@@ -410,12 +427,24 @@ cssScene.add(pageObj);
 ['pointerdown', 'touchstart', 'wheel'].forEach(() => {});
 pageEl.addEventListener('pointerdown', (e) => { if (e.target.closest('button,.flap')) e.stopPropagation(); });
 
-function renderLeft() {
+const CICON = [
+  '<svg viewBox="0 0 24 24"><path d="M3 21L21 3M21 3h-7M21 3v7M3 21V9M3 21h12"/></svg>',
+  '<svg viewBox="0 0 24 24"><path d="M2 16h14l3-4h3v4h-2"/><circle cx="7" cy="17" r="2"/><circle cx="17" cy="17" r="2"/><path d="M2 8h6M4 11h5"/></svg>',
+  '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"/><path d="M12 2v5M12 17v5M2 12h5M17 12h5"/></svg>',
+  '<svg viewBox="0 0 24 24"><path d="M2 18h20M12 18l-3-6h6zM4 8l16 2"/><circle cx="12" cy="9" r="1.5"/></svg>',
+  '<svg viewBox="0 0 24 24"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></svg>',
+  '<svg viewBox="0 0 24 24"><path d="M10 14V4a2 2 0 0 1 4 0v10a4 4 0 1 1-4 0z"/><path d="M12 9v7"/></svg>',
+  '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 12l6-4M12 4v2"/><path d="M20 12a8 8 0 0 1-3 6"/></svg>',
+  '<svg viewBox="0 0 24 24"><path d="M2 12c2-6 4-6 6 0s4 6 6 0 4-6 6 0"/></svg>',
+  '<svg viewBox="0 0 24 24"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10c1 1 1 2 1 3h6c0-1 0-2 1-3a6 6 0 0 0-4-10z"/></svg>',
+  '<svg viewBox="0 0 24 24"><path d="M6 3v9a6 6 0 0 0 12 0V3h-4v9a2 2 0 0 1-4 0V3z"/><path d="M6 7h4M14 7h4"/></svg>',
+];
+function renderLeftInto(el) {
   const L = LESSONS[state.cur], pr = prog(L.id), n = L.scene.targets.length, cnt = pr.done.filter(Boolean).length, complete = cnt >= n;
-  pageEl.style.setProperty('--acc', ACC[L.chapter - 1]);
+  el.style.setProperty('--acc', ACC[L.chapter - 1]);
   const letters = ['أ', 'ب', 'ج', 'د'];
-  pageEl.innerHTML = `<div class="lp">
-    <header class="lp-head">
+  el.innerHTML = `<div class="lp">
+    <header class="lp-head"><span class="cicon" style="color:${ACC[L.chapter - 1]}">${CICON[L.chapter - 1] || ''}</span>
       <span class="chip">${L.chapterLabel} · <bdi dir="ltr">${L.section}</bdi> · ص ${L.pages}</span>
       <h1>${esc(L.title)}</h1><div class="en">${esc(L.titleEn)}</div>
       <div class="stamp ${complete ? 'inked' : ''}" aria-label="ختم الإنجاز"><b>${complete ? 'أُنجز' : 'الختم'}</b><small>${cnt} / ${n}</small></div>
@@ -430,7 +459,7 @@ function renderLeft() {
       <div class="flap"><div class="face front"><div class="lock">🔒</div><div>ارفع الغطاء لتعرف السبب</div><em>اختر توقعك أولاً ليُفتح الغطاء</em></div><div class="face back">لماذا؟</div></div></section>
     <div class="foot"><span>${esc('الفيزياء · الصف الخامس العلمي')}</span><span>الدرس ${state.cur + 1} من ${LESSONS.length}</span></div>
   </div>`;
-  const opts = [...pageEl.querySelectorAll('.opt')], flap = pageEl.querySelector('.flap');
+  const opts = [...el.querySelectorAll('.opt')], flap = el.querySelector('.flap');
   const applyAns = (a, fresh) => {
     opts.forEach((b, i) => { b.disabled = true; if (i === L.quiz.correct) b.classList.add('right'); else if (i === a) b.classList.add('wrong'); });
     flap.classList.add('ready'); flap.querySelector('.front div:nth-child(2)').textContent = a === L.quiz.correct ? 'توقّع صحيح! ارفع الغطاء' : 'ارفع الغطاء لتعرف السبب';
@@ -446,6 +475,7 @@ function renderLeft() {
   if (pr.ans != null) applyAns(pr.ans, false);
 }
 
+function renderLeft() { renderLeftInto(pageEl); renderLeftInto(mobInner); updateGuide(); renderActs(); }
 /* ================= scene lifecycle ================= */
 let cur = null; // current built scene
 const sceneRoot = new THREE.Group(); sceneRoot.position.set(XR, TOP, 0); scene.add(sceneRoot);
@@ -459,6 +489,8 @@ function buildScene(i) {
     t.meshes = []; (t.hit || [t.obj]).forEach((o) => o.traverse((m) => { if (m.isMesh) t.meshes.push(m); }));
     const ring = new THREE.Mesh(ringGeo, new THREE.MeshBasicMaterial({ color: '#d9480f', transparent: true, opacity: 0.8, depthWrite: false, toneMapped: false }));
     ring.position.copy(t.hint).setY(0.002); ring.renderOrder = 4; built.group.add(ring); t.ring = ring; t.k = k;
+    const done = prog(L.id).done[k]; const nm = label(done ? '✓' : String(k + 1), { color: '#ffffff', bg: ACC[L.chapter - 1], size: 0.05, border: false });
+    nm.position.copy(t.hint).setY(0.1); nm.userData.s0 = nm.scale.clone(); nm.renderOrder = 12; nm.material.depthTest = false; built.group.add(nm); t.num = nm;
   });
   return built;
 }
@@ -469,6 +501,8 @@ function disposeScene(b) {
 function popIn(b) {
   if (state.reduced) { b.group.scale.y = 1; return Promise.resolve(); }
   SFX.pop();
+  const skip = new Set(); b.targets.forEach((t) => { skip.add(t.ring); skip.add(t.num); });
+  b.group.children.filter((c) => !skip.has(c) && !c.isSprite).forEach((c, i) => { const y = c.position.y; gsap.fromTo(c.position, { y: y + 0.14 }, { y, duration: 0.6, delay: 0.15 + Math.min(i, 24) * 0.035, ease: 'bounce.out', overwrite: false }); });
   return new Promise((res) => gsap.to(b.group.scale, { y: 1, duration: 1.15, ease: 'elastic.out(1,0.45)', onComplete: res }));
 }
 function foldOut(b) {
@@ -481,26 +515,44 @@ function markTarget(k) {
   if (pr.done[k]) return;
   pr.done[k] = true; saveProg();
   const n = L.scene.targets.length, cnt = pr.done.filter(Boolean).length;
-  const chip = pageEl.querySelectorAll('.tries span')[k]; if (chip) { chip.classList.add('ok'); chip.innerHTML = '✓ ' + rich(L.scene.targets[k]); }
-  const st = pageEl.querySelector('.stamp'); if (st) st.querySelector('small').textContent = `${cnt} / ${n}`;
-  if (cnt >= n) setTimeout(() => { st.classList.add('inked'); st.querySelector('b').textContent = 'أُنجز'; SFX.stamp(); renderToc(); }, 500);
+  const sts = [];
+  [pageEl, mobInner].forEach((el) => { const chip = el.querySelectorAll('.tries span')[k]; if (chip) { chip.classList.add('ok'); chip.innerHTML = '✓ ' + rich(L.scene.targets[k]); }
+    const st = el.querySelector('.stamp'); if (st) { st.querySelector('small').textContent = `${cnt} / ${n}`; sts.push(st); } });
+  if (cur && cur.targets[k] && cur.targets[k].num) cur.targets[k].num.setText('✓');
+  updateGuide(); renderActs();
+  if (cnt >= n) setTimeout(() => { sts.forEach((st) => { st.classList.add('inked'); st.querySelector('b').textContent = 'أُنجز'; }); SFX.stamp(); SFX.celebrate(); confetti(); renderToc(); }, 500);
 }
-function activate(k, byUser) {
+function activate(k, byUser, viaBtn) {
   if (!cur || state.busy) return;
   const t = cur.targets[k]; if (!t) return;
-  SFX.click(); t.act();
+  SFX.click(); t.act(); playFor(LESSONS[state.cur].scene.targets[k] || '');
+  const w = cur.group.localToWorld(t.hint.clone().setY(0.06)); burst(w, ACC[LESSONS[state.cur].chapter - 1], 22);
+  if (t.ring) { t.ring.scale.setScalar(2.2); t.ring.material.opacity = 1; }
+  if (viaBtn && !state.demoOn && !state.mob && !state.reduced) nudgeTo(w);
   if (byUser) markTarget(k);
+  lastUser = performance.now(); autoDone = false;
+}
+const SND = [[/تصادم|ارتطام|الجدار|الوسادة|المطرقة/, 'thud'], [/نابض|الثقل|البندول|الأرجوحة|اهتز|المتزلج/, 'boing'], [/تيار|البطارية|المفتاح|السلك|الملف|المصباح|المقاومة|الكلفانومتر|المحرك|السخان|المروحة|المصدر|الأميتر|الشحنة/, 'buzz'],
+  [/ماء|سائل|الحوض|البحر|السفينة|القاع/, 'bubbles'], [/الشوكة|صوت|رنين|المذبذب|الوتر|السامع|الماكنة/, 'bell'], [/هواء|الغاز|المكبس|اللهب|الحرارة|التبريد/, 'wind'],
+  [/أطلق|إطلاق|الكرة|السيارة|القذيفة|الطائرة|الجسيم|سحب|دفع|اليد|المصعد|الحبل|العربة|الجسم|الصندوق|المكعب|القرص|العجلة|تشغيل|الأرض/, 'launch']];
+function playFor(lbl) { const m = SND.find(([re]) => re.test(lbl)); const f = m ? m[1] : 'pop'; SFX[f](); }
+let lastUser = performance.now(), autoDone = true;
+function nudgeTo(w) {
+  const tgt = controls.target.clone().lerp(w, 0.45); const dir = camera.position.clone().sub(controls.target); const d = Math.max(0.9, dir.length() * 0.85);
+  flyTo(tgt.clone().add(dir.normalize().multiplyScalar(d)), tgt, 0.9);
 }
 
 /* ================= camera ================= */
 const controls = new OrbitControls(camera, stage);
 controls.enableDamping = true; controls.dampingFactor = 0.08;
 controls.minDistance = 0.55; controls.maxDistance = 5.2;
-controls.minPolarAngle = 0.05; controls.maxPolarAngle = 1.36;
-controls.rotateSpeed = 0.7; controls.zoomSpeed = 0.9; controls.panSpeed = 0.8;
+controls.minPolarAngle = 0.05; controls.maxPolarAngle = 1.3;
+controls.minAzimuthAngle = -1.05; controls.maxAzimuthAngle = 1.05;
+controls.rotateSpeed = 0.5; controls.zoomSpeed = 0.9; controls.panSpeed = 0.8;
 controls.screenSpacePanning = true;
 controls.touches = { ONE: THREE.TOUCH.ROTATE, TWO: THREE.TOUCH.DOLLY_PAN };
 function home() {
+  if (state.mob) { const a = innerWidth / innerHeight, tgt = V(XR + 0.02, TOP + 0.05, -0.04), k = clamp(0.62 / a, 1, 1.7); return { pos: tgt.clone().add(V(0, 1.95 * k, 0.62 * k)), tgt }; }
   const a = innerWidth / innerHeight; const f = a < 1.25 ? Math.min(2.6, 1.32 / a + 0.05) : 1;
   const tgt = V(0, 0.05, 0.1); const off = V(0, 2.2, 1.42).multiplyScalar(f);
   return { pos: tgt.clone().add(off), tgt };
@@ -610,11 +662,15 @@ function pick(e) {
   ray.setFromCamera(ndc, camera);
   const all = []; cur.targets.forEach((t) => t.meshes.forEach((m) => all.push(m)));
   const hit = ray.intersectObjects(all, false).find((h) => h.object.isMesh && h.object.visible);
-  if (!hit) return null;
+  if (!hit) {
+    let best = -1, bd = 1e9; cur.targets.forEach((t, k) => { [t.hint.clone().setY(0.02), t.num ? t.num.position.clone() : null].forEach((p) => { if (!p) return; const w = cur.group.localToWorld(p).project(camera);
+      const sx = (w.x + 1) / 2 * r.width + r.left, sy = (1 - w.y) / 2 * r.height + r.top, d = Math.hypot(sx - e.clientX, sy - e.clientY); if (d < bd) { bd = d; best = k; } }); });
+    return bd < (e.pointerType === 'mouse' ? 30 : 48) ? best : null;
+  }
   return cur.targets.findIndex((t) => t.meshes.includes(hit.object));
 }
 stage.addEventListener('pointerdown', (e) => {
-  SFX.ensure();
+  SFX.ensure(); lastUser = performance.now(); autoDone = false;
   if (state.demoOn) { stopDemo(); controls.enabled = true; }
   hideHint();
   down = { x: e.clientX, y: e.clientY, t: performance.now(), onPage: !!e.target.closest('.page') };
@@ -622,8 +678,10 @@ stage.addEventListener('pointerdown', (e) => {
 stage.addEventListener('pointerup', (e) => {
   if (!down) return; const d = Math.hypot(e.clientX - down.x, e.clientY - down.y), dt = performance.now() - down.t, onPage = down.onPage; down = null;
   if (onPage || d > 6 || dt > 600 || e.button !== 0) return;
-  const k = pick(e); if (k != null && k >= 0) activate(k, true);
+  const k = pick(e); if (k != null && k >= 0) { activate(k, true); return; }
+  const now = performance.now(); if (now - (stage._tap || 0) < 320) { resetView(); stage._tap = 0; } else stage._tap = now;
 }, true);
+stage.addEventListener('wheel', () => { lastUser = performance.now(); autoDone = false; }, { passive: true });
 let hoverQ = null;
 stage.addEventListener('pointermove', (e) => {
   if (e.pointerType !== 'mouse' || down) return; hoverQ = e;
@@ -636,6 +694,37 @@ function hoverTick() {
 
 /* ================= HUD wiring ================= */
 $('#bNext').onclick = () => goTo(state.cur + 1);
+/* ---------- action bar, guide, views ---------- */
+function renderActs() {
+  const L = LESSONS[state.cur], pr = prog(L.id), col = ACC[L.chapter - 1];
+  $('#actBtns').innerHTML = L.scene.targets.map((t, k) => `<button class="act ${pr.done[k] ? 'done' : ''}" data-k="${k}" style="--c:${col}"><i>${pr.done[k] ? '✓' : k + 1}</i><span>${rich(t)}</span></button>`).join('');
+  $('#actBtns').querySelectorAll('.act').forEach((b) => b.addEventListener('click', () => { SFX.ensure(); const k = +b.dataset.k; b.classList.remove('press'); void b.offsetWidth; b.classList.add('press'); activate(k, true, true); }));
+}
+function updateGuide() {
+  const L = LESSONS[state.cur], pr = prog(L.id), k = L.scene.targets.findIndex((_, i) => !pr.done[i]);
+  $('#guide').innerHTML = k < 0 ? 'أحسنت! أنجزت تجارب هذه الصفحة. جرّب سؤال «توقّع قبل التجربة» في الشرح' : `اضغط <b>${k + 1}</b> لتجرّب: ${rich(L.scene.targets[k])}`;
+}
+document.querySelectorAll('[data-view]').forEach((b) => b.addEventListener('click', () => { stopDemo(); lastUser = performance.now(); autoDone = false; const s = SHOTS[b.dataset.view](); flyTo(s.pos, s.tgt, 1.1); SFX.click(); }));
+/* ---------- mobile ---------- */
+function setTab(t) { document.body.dataset.tab = t; document.querySelectorAll('#mobTabs button').forEach((b) => b.setAttribute('aria-pressed', b.dataset.tab === t)); if (t === 'lab') { const h = home(); flyTo(h.pos, h.tgt, 0.8); } }
+document.querySelectorAll('#mobTabs button').forEach((b) => b.addEventListener('click', () => { SFX.ensure(); SFX.click(); setTab(b.dataset.tab); }));
+{ let sx = 0, sy = 0; const mp = $('#mobPage'); mp.addEventListener('touchstart', (e) => { sx = e.touches[0].clientX; sy = e.touches[0].clientY; }, { passive: true });
+  mp.addEventListener('touchend', (e) => { const dx = e.changedTouches[0].clientX - sx, dy = e.changedTouches[0].clientY - sy; if (Math.abs(dx) > 70 && Math.abs(dy) < 50) { goTo(state.cur + (dx < 0 ? 1 : -1)).then(() => { mp.scrollTop = 0; }); } }, { passive: true }); }
+function applyMob() {
+  const m = innerWidth < 700; const changed = m !== state.mob; state.mob = m; document.body.classList.toggle('mob', m);
+  mobInner.style.zoom = Math.min(0.62, (innerWidth - 4) / 1000);
+  if (changed) { if (!document.body.dataset.tab) document.body.dataset.tab = 'lab'; const h = home(); flyTo(h.pos, h.tgt, 0); }
+}
+/* ---------- settings ---------- */
+$('#volR').value = state.vol; $('#volR').addEventListener('input', (e) => { SFX.ensure(); SFX.setVol(+e.target.value); store.set('pp-vol', +e.target.value); });
+$('#volR').addEventListener('change', () => SFX.click());
+$('#liteC').checked = !!state.lite; $('#liteC').addEventListener('change', (e) => { setLite(e.target.checked); store.set('pp-lite', e.target.checked); store.set('pp-lite-set', true); });
+function setLite(on) {
+  state.lite = on; renderer.setPixelRatio(on ? 1 : Math.min(devicePixelRatio, 2)); renderer.shadowMap.enabled = !on; sun.castShadow = !on;
+  scene.traverse((o) => { if (o.material) (Array.isArray(o.material) ? o.material : [o.material]).forEach((m) => (m.needsUpdate = true)); });
+  resize(); $('#liteC').checked = on;
+}
+function toast(t) { const el = $('#toast'); el.textContent = t; el.classList.add('show'); clearTimeout(el._t); el._t = setTimeout(() => el.classList.remove('show'), 3500); }
 $('#bPrev').onclick = () => goTo(state.cur - 1);
 $('#bPlay').onclick = () => runDemo();
 $('#bReset').onclick = () => resetView();
@@ -655,7 +744,7 @@ function applyHc() {
   drawRightPage();
 }
 $('#bHc').onclick = () => { state.hc = !state.hc; store.set('pp-hc', state.hc); applyHc(); };
-function applyRm() { $('#bRm').setAttribute('aria-pressed', state.reduced); controls.enableDamping = !state.reduced; renderLeftFlapTransition(); }
+function applyRm() { document.body.classList.toggle('rm', state.reduced); $('#bRm').setAttribute('aria-pressed', state.reduced); controls.enableDamping = !state.reduced; renderLeftFlapTransition(); }
 function renderLeftFlapTransition() { const f = pageEl.querySelector('.flap'); if (f) f.style.transition = state.reduced ? 'none' : ''; }
 $('#bRm').onclick = () => { state.reduced = !state.reduced; store.set('pp-rm', state.reduced); applyRm(); if (state.reduced) stopDemo(); };
 addEventListener('keydown', (e) => {
@@ -671,10 +760,31 @@ function hideHint() { $('#hint').classList.add('gone'); }
 
 /* ================= resize & loop ================= */
 function resize() {
-  const w = innerWidth, h = innerHeight; renderer.setSize(w, h); composer.setSize(w, h); css.setSize(w, h);
+  const w = innerWidth, h = innerHeight; applyMob(); renderer.setSize(w, h); composer.setSize(w, h); css.setSize(w, h);
   camera.aspect = w / h; camera.updateProjectionMatrix();
 }
 addEventListener('resize', resize);
+/* ---------- particles: bursts, confetti, ambient motes ---------- */
+const PN = 220, pMesh = new THREE.InstancedMesh(new THREE.SphereGeometry(0.0065, 8, 6), new THREE.MeshBasicMaterial({ toneMapped: false }), PN);
+pMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage); pMesh.frustumCulled = false; scene.add(pMesh);
+const parts = [], _o = new THREE.Object3D(), _c = new THREE.Color();
+for (let i = 0; i < PN; i++) { pMesh.setColorAt(i, _c.set('#ffffff')); _o.position.set(0, -10, 0); _o.scale.setScalar(0); _o.updateMatrix(); pMesh.setMatrixAt(i, _o.matrix); }
+let pNext = 0;
+function spawn(p, v, col, life, g = 0, s = 1) { const i = pNext; pNext = (pNext + 1) % PN; parts[i] = { p: p.clone(), v, life, l0: life, g, s }; pMesh.setColorAt(i, _c.set(col)); pMesh.instanceColor.needsUpdate = true; }
+function burst(w, col, n = 20) { if (state.reduced) return; for (let i = 0; i < n; i++) { const a = Math.random() * Math.PI * 2, e = Math.random() * 0.9 + 0.3; spawn(w, V(Math.cos(a) * Math.cos(e), Math.sin(e), Math.sin(a) * Math.cos(e)).multiplyScalar(0.35 + Math.random() * 0.4), Math.random() < 0.5 ? col : '#ffd43b', 0.7, 0.9, 1); } }
+function confetti() { if (state.reduced) return; const cs = ['#e03131', '#1c7ed6', '#2b8a3e', '#f59f00', '#ae3ec9', '#0ca678']; for (let i = 0; i < 110; i++) { const w = V(XR + (Math.random() - 0.5) * 0.6, TOP + 0.05, (Math.random() - 0.5) * 0.6); spawn(w, V((Math.random() - 0.5) * 0.7, 1.0 + Math.random() * 0.9, (Math.random() - 0.5) * 0.7), cs[i % cs.length], 2.2, 1.5, 1.4); } }
+const MN = 34, mMesh = new THREE.InstancedMesh(new THREE.SphereGeometry(0.004, 6, 4), new THREE.MeshBasicMaterial({ color: '#fff3bf', transparent: true, opacity: 0.55, toneMapped: false }), MN);
+mMesh.frustumCulled = false; scene.add(mMesh); const motes = Array.from({ length: MN }, () => ({ x: Math.random(), y: Math.random(), z: Math.random(), s: 0.3 + Math.random() * 0.7 }));
+function stepFX(dt, t) {
+  for (let i = 0; i < PN; i++) { const q = parts[i]; if (!q) continue; q.life -= dt; if (q.life <= 0) { parts[i] = null; _o.position.set(0, -10, 0); _o.scale.setScalar(0); }
+    else { q.v.y -= q.g * dt; q.p.addScaledVector(q.v, dt); if (q.p.y < TOP + 0.003) { q.p.y = TOP + 0.003; q.v.multiplyScalar(0.4); } _o.position.copy(q.p); _o.scale.setScalar(q.s * Math.min(1, q.life / q.l0 * 2)); }
+    _o.updateMatrix(); pMesh.setMatrixAt(i, _o.matrix); }
+  pMesh.instanceMatrix.needsUpdate = true;
+  mMesh.visible = !state.reduced && !state.lite;
+  if (mMesh.visible) { motes.forEach((m, i) => { const yy = (m.y + t * 0.02 * m.s) % 1; _o.position.set(XR - 0.5 + m.x + Math.sin(t * 0.3 + i) * 0.03, TOP + 0.05 + yy * 0.45, -0.6 + m.z * 1.2); _o.scale.setScalar(m.s * Math.sin(yy * Math.PI)); _o.updateMatrix(); mMesh.setMatrixAt(i, _o.matrix); }); mMesh.instanceMatrix.needsUpdate = true; }
+  if (FX.shakeT > 0) { FX.shakeT -= dt; const a = FX.shakeA * Math.max(0, FX.shakeT / 0.35); sceneRoot.position.set(XR + (Math.random() - 0.5) * a, TOP + (Math.random() - 0.5) * a * 0.5, (Math.random() - 0.5) * a); if (FX.shakeT <= 0) sceneRoot.position.set(XR, TOP, 0); }
+}
+let fpsN = 0, fpsT = 0, slowS = 0;
 const clock = new THREE.Clock();
 const TMIN = V(-1.3, 0, -1.0), TMAX = V(1.3, 0.45, 1.0);
 function loop() {
@@ -685,10 +795,15 @@ function loop() {
   if (cur) {
     if (cur.update) cur.update(dt, t);
     const pr = prog(LESSONS[state.cur].id);
-    cur.targets.forEach((tg, k) => { const on = !pr.done[k]; tg.ring.visible = on && cur.group.scale.y > 0.9; if (on) { const s = 1 + 0.35 * ((t * 1.3 + k * 0.3) % 1); tg.ring.scale.setScalar(s); tg.ring.material.opacity = 0.85 * (1 - ((t * 1.3 + k * 0.3) % 1)); } });
+    cur.targets.forEach((tg, k) => { const on = !pr.done[k]; tg.ring.visible = on && cur.group.scale.y > 0.9; if (on) { const s = 1 + 0.35 * ((t * 1.3 + k * 0.3) % 1); tg.ring.scale.setScalar(s); tg.ring.material.opacity = 0.85 * (1 - ((t * 1.3 + k * 0.3) % 1)); }
+      if (tg.num) { tg.num.visible = cur.group.scale.y > 0.9; const ps = on && !state.reduced ? 1 + 0.12 * Math.sin(t * 4 + k) : 1; tg.num.scale.set(tg.num.userData.s0.x * ps, tg.num.userData.s0.y * ps, 1); } });
   }
+  stepFX(dt, t);
+  if (!state.demoOn && !camTween && !state.busy && !autoDone && performance.now() - lastUser > 12000) { autoDone = true; const h = home(); if (camera.position.distanceTo(h.pos) > 0.08) flyTo(h.pos, h.tgt, 1.6); }
+  { fpsN++; const np = performance.now(); if (!fpsT) fpsT = np; if (np - fpsT > 1000) { const fps = fpsN * 1000 / (np - fpsT); fpsN = 0; fpsT = np;
+    if (!state.lite && document.visibilityState === 'visible') { slowS = fps < 25 ? slowS + 1 : 0; if (slowS >= 4 && !store.get('pp-lite-set', false)) { setLite(true); toast('فُعِّل الوضع الخفيف تلقائياً لتسريع العرض'); } } } }
   hoverTick();
-  composer.render();
+  if (state.lite) renderer.render(scene, camera); else composer.render();
   cssCam.copy(camera); cssCam.position.multiplyScalar(K); cssCam.updateMatrixWorld(); css.render(cssScene, cssCam);
 }
 
@@ -698,12 +813,13 @@ async function boot() {
   resize();
   const fromHash = LESSONS.findIndex((l) => '#' + l.id === location.hash);
   state.cur = fromHash >= 0 ? fromHash : clamp(store.get('pp-cur', 0) | 0, 0, LESSONS.length - 1);
+  applyMob(); if (state.lite) setLite(true);
   cur = buildScene(state.cur); renderLeft(); drawRightPage(); updateHud(); applySound(); applyRm();
   if (state.hc) applyHc();
   loop();
   $('#loader').classList.add('gone');
   await sleep(350); await popIn(cur);
-  hintTimer = setTimeout(hideHint, 9000);
-  window.__pp = { goTo, activate: (k) => activate(k, true), runDemo, state, camera, controls, gsap, flyTo, V, _root: sceneRoot, _sheet: (p, d) => { sheet.visible = p != null; if (p != null) bendSheet(p, d); } };
+  hideHint();
+  window.__pp = { goTo, activate: (k) => activate(k, true), setTab, setLite, runDemo, state, camera, controls, gsap, flyTo, V, _root: sceneRoot, _sheet: (p, d) => { sheet.visible = p != null; if (p != null) bendSheet(p, d); } };
 }
 boot();
